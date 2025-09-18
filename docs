@@ -1,0 +1,10 @@
+ Comandos úteis
+- Rodar: `make run`
+- Limpar (apaga DB e logs): `make clean`
+
+Segurança
+- Senhas são armazenadas com **PBKDF2-HMAC-SHA256** e _salts_ únicos.
+- Política mínima: 8 caracteres.
+- Auditoria básica: `auth.log` registra sucesso/falha de login.
+ Exportar usuários
+No menu, escolha **4) Exportar usuários para CSV**. O arquivo é salvo em `exports/users.csv`.
