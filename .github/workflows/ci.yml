@@ -34,3 +34,10 @@ jobs:
           LOGIN_DB_PATH: tests/.tmp-db-${{ matrix.python-version }}.db
         run: |
           pytest -q
+          on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
