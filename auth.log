@@ -1,0 +1,14 @@
+import logging
+LOG_PATH = Path("auth.log")
+logging.basicConfig(
+    filename=LOG_PATH,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+if hashlib.compare_digest(provided_hash, expected_hash):
+    logging.info("login success user=%s", username.strip())
+    return True
+else:
+    logging.warning("login failed user=%s", username.strip())
+    print("Usuário ou senha inválidos.")
+    return False
