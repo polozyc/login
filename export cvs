@@ -1,0 +1,12 @@
+import csv
+
+def export_users_csv(path="exports/users.csv"):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with get_conn() as conn, open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "username", "created_at"])
+        for rid, uname, created in conn.execute(
+            "SELECT id, username, created_at FROM users ORDER BY id"
+        ):
+            writer.writerow([rid, uname, created])
+    print(f"✅ Usuários exportados para {path}")
