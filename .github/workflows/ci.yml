@@ -31,5 +31,6 @@ jobs:
 
       - name: Run pytest
         env:
+          PYTHONPATH: ${{ github.workspace }}                 # garante que a raiz do repo está no path
           LOGIN_DB_PATH: tests/.tmp-db-${{ matrix.python-version }}.db
-        run: pytest -q
+        run: pytest -vv
