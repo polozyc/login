@@ -3,7 +3,7 @@
 Sistema de Login em Python (CLI) com SQLite + PBKDF2 (sem dependências externas).
 Recursos:
 - Registro de usuários (com verificação de duplicidade)
-- Login com verificação segura (compare_digest)
+- Login com verificação segura (tempo constante via hmac.compare_digest)
 - Lista de usuários cadastrados
 - Exportação de usuários para CSV (exports/users.csv)
 - Auditoria básica de login em auth.log
@@ -15,8 +15,9 @@ import os
 import binascii
 import getpass
 import hashlib
+import hmac
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import csv
 
@@ -86,7 +87,7 @@ def create_user(username: str, password: str) -> bool:
                     username.strip(),
                     binascii.hexlify(salt).decode("ascii"),
                     binascii.hexlify(pwd_hash).decode("ascii"),
-                    datetime.utcnow().isoformat() + "Z",
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
             conn.commit()
@@ -114,7 +115,7 @@ def verify_login(username: str, password: str) -> bool:
         provided_hash = pbkdf2_hash(password, salt)
 
         # Comparação em tempo constante
-        if hashlib.compare_digest(provided_hash, expected_hash):
+        if hmac.compare_digest(provided_hash, expected_hash):
             logging.info("login success user=%s", username.strip())
             return True
         else:
