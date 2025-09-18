@@ -15,7 +15,7 @@ import hashlib
 import time
 from datetime import datetime
 
-DB_PATH = Path("users.db")
+DB_PATH = Path(os.getenv("LOGIN_DB_PATH", "users.db"))
 
 ITERATIONS = 200_000  # PBKDF2 iterations
 HASH_NAME = "sha256"
