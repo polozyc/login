@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
 Sistema de Login em Python (CLI) com SQLite + PBKDF2 (sem dependências externas).
+Recursos:
 - Registro de usuários (com verificação de duplicidade)
 - Login com verificação segura (compare_digest)
 - Lista de usuários cadastrados
+- Exportação de usuários para CSV (exports/users.csv)
+- Auditoria básica de login em auth.log
 """
 
 from pathlib import Path
@@ -14,17 +17,27 @@ import getpass
 import hashlib
 import time
 from datetime import datetime
+import logging
+import csv
 
+# ---- Configurações ----
+# Permite definir um banco de testes no CI/local via LOGIN_DB_PATH.
 DB_PATH = Path(os.getenv("LOGIN_DB_PATH", "users.db"))
 
-ITERATIONS = 200_000  # PBKDF2 iterations
+ITERATIONS = 200_000          # PBKDF2 iterations
 HASH_NAME = "sha256"
-KEY_LEN = 32  # 256-bit key
+KEY_LEN = 32                  # 256-bit key
 
+LOG_PATH = Path("auth.log")
+logging.basicConfig(
+    filename=LOG_PATH,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 
+# ---- Infra de banco ----
 def get_conn():
     return sqlite3.connect(DB_PATH)
-
 
 def init_db():
     with get_conn() as conn:
@@ -41,7 +54,7 @@ def init_db():
         )
         conn.commit()
 
-
+# ---- Criptografia ----
 def pbkdf2_hash(password: str, salt: bytes) -> bytes:
     return hashlib.pbkdf2_hmac(
         HASH_NAME,
@@ -51,10 +64,15 @@ def pbkdf2_hash(password: str, salt: bytes) -> bytes:
         dklen=KEY_LEN,
     )
 
-
+# ---- Operações principais ----
 def create_user(username: str, password: str) -> bool:
     if not username or not password:
         print("Usuário e senha não podem ser vazios.")
+        return False
+
+    # Política mínima de senha
+    if len(password) < 8:
+        print("A senha deve ter pelo menos 8 caracteres.")
         return False
 
     salt = os.urandom(16)
@@ -78,7 +96,6 @@ def create_user(username: str, password: str) -> bool:
         print("⚠️ Nome de usuário já existe. Escolha outro.")
         return False
 
-
 def verify_login(username: str, password: str) -> bool:
     with get_conn() as conn:
         cur = conn.execute(
@@ -87,6 +104,7 @@ def verify_login(username: str, password: str) -> bool:
         row = cur.fetchone()
         if not row:
             print("Usuário ou senha inválidos.")
+            logging.warning("login failed user=%s (user not found)", username.strip())
             return False
 
         salt_hex, hash_hex = row
@@ -95,12 +113,14 @@ def verify_login(username: str, password: str) -> bool:
 
         provided_hash = pbkdf2_hash(password, salt)
 
+        # Comparação em tempo constante
         if hashlib.compare_digest(provided_hash, expected_hash):
+            logging.info("login success user=%s", username.strip())
             return True
         else:
+            logging.warning("login failed user=%s", username.strip())
             print("Usuário ou senha inválidos.")
             return False
-
 
 def list_users():
     with get_conn() as conn:
@@ -114,20 +134,29 @@ def list_users():
             print(f"[{rid}] {uname} • criado em {created}")
         print("============================\n")
 
+def export_users_csv(path="exports/users.csv"):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with get_conn() as conn, open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "username", "created_at"])
+        for rid, uname, created in conn.execute(
+            "SELECT id, username, created_at FROM users ORDER BY id"
+        ):
+            writer.writerow([rid, uname, created])
+    print(f"✅ Usuários exportados para {path}")
 
+# ---- Utilidades de CLI ----
 def clear_screen():
     try:
         os.system("cls" if os.name == "nt" else "clear")
     except Exception:
         pass
 
-
 def pause():
     try:
         input("\nPressione Enter para continuar...")
     except EOFError:
         time.sleep(1)
-
 
 def menu():
     while True:
@@ -136,7 +165,8 @@ def menu():
         print("1) Registrar novo usuário")
         print("2) Fazer login")
         print("3) Listar usuários")
-        print("4) Sair")
+        print("4) Exportar usuários para CSV")
+        print("5) Sair")
         choice = input("Escolha uma opção: ").strip()
 
         if choice == "1":
@@ -166,13 +196,17 @@ def menu():
             pause()
 
         elif choice == "4":
+            export_users_csv()
+            pause()
+
+        elif choice == "5":
             print("Até logo!")
             break
         else:
             print("Opção inválida.")
             pause()
 
-
+# ---- Entry point ----
 if __name__ == "__main__":
     init_db()
     menu()
